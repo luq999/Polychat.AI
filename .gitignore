@@ -1,0 +1,5 @@
+node_modules
+.env
+.ingest-cache.json
+knowledge/*
+!knowledge/sources.txt

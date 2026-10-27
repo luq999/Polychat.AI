@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mospolyt.ai — ИИ-ассистент от студентов Политеха</title>
+  <meta name="description" content="Неофициальный студенческий ИИ-ассистент: поступление, учёба, расписание, общежитие, справки.">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Montserrat — запасной шрифт, пока не подключены файлы Gilroy -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#chat">Перейти к чату</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="mospolyt.ai — на главную">
+      <canvas class="ring" data-ring data-width="0.2" width="40" height="40" aria-hidden="true"></canvas>
+      <span class="brand-text">
+        <span class="brand-name">mospolyt.ai</span>
+        <span class="brand-sub">от студентов Политеха</span>
+      </span>
+    </a>
+    <nav class="nav" aria-label="Основное меню">
+      <a href="#abilities">Что умеет</a>
+      <a href="#how">Как пользоваться</a>
+      <a href="#about">О проекте</a>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Переключить тему" title="Сменить тему">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c-5 1-10-4-9-9Z" fill="currentColor"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>Спроси у ассистента от своих</h1>
+        <p class="lead">
+          Мы, первокурсники Политеха, собрали ассистента, чтобы не искать ответы на десяти сайтах.
+          Поступление, расписание, общежитие, справки — пиши как есть.
+        </p>
+
+        <div class="ring-stage" id="ringStage">
+          <canvas class="ring ring-lg" id="heroRing" data-ring data-width="0.17" data-hero width="320" height="320" role="img" aria-label="Кольцо превращается в спираль, пока ассистент думает"></canvas>
+        </div>
+
+        <!-- Интерактивный виджет корпусов под кольцом -->
+        <div class="campus-widget" aria-label="Навигатор по корпусам">
+          <div class="campus-head">
+            <span class="campus-label">Навигатор по кампусам</span>
+            <div class="campus-tabs" role="tablist">
+              <button type="button" class="campus-tab active" data-campus="bs" role="tab" aria-selected="true">БС</button>
+              <button type="button" class="campus-tab" data-campus="pk" role="tab" aria-selected="false">ПК</button>
+              <button type="button" class="campus-tab" data-campus="av" role="tab" aria-selected="false">АВ</button>
+              <button type="button" class="campus-tab" data-campus="pr" role="tab" aria-selected="false">ПР</button>
+              <button type="button" class="campus-tab" data-campus="mh" role="tab" aria-selected="false">МХ</button>
+            </div>
+          </div>
+          <div class="campus-body" id="campusBody">
+            <div class="campus-title" id="campusTitle">Большая Семёновская, 38</div>
+            <div class="campus-metro" id="campusMetro">м. Электрозаводская / Семёновская</div>
+            <p class="campus-desc" id="campusDesc">Главный корпус, приёмная комиссия, МФЦ, коворкинги и основные потоковые аудитории.</p>
+            <button type="button" class="campus-ask" id="campusAskBtn" data-ask="Расскажи подробнее про корпус на Большой Семёновской и как там ориентироваться">
+              Спросить про этот корпус →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <section class="sheet" id="chat" aria-label="Чат с ассистентом">
+        <header class="sheet-head">
+          <div class="head-title">
+            <strong>Ассистент</strong>
+            <span class="status"><i></i><span id="statusText">демо-режим</span></span>
+          </div>
+          <button class="head-btn" id="clearBtn" type="button">Новый диалог</button>
+        </header>
+
+        <div class="log" id="log" role="log" aria-live="polite" aria-label="История диалога"></div>
+
+        <button class="scroll-bottom-btn" id="scrollBottomBtn" type="button" aria-label="Прокрутить вниз" hidden>↓</button>
+
+        <div class="chips" id="chips" aria-label="Примеры вопросов"></div>
+
+        <form class="composer" id="form" autocomplete="off">
+          <label class="sr" for="input">Твой вопрос</label>
+          <textarea id="input" rows="1" maxlength="1000" placeholder="Например: какие документы нужны для поступления?"></textarea>
+          <button class="send" id="sendBtn" type="submit" aria-label="Отправить">
+            <svg class="icon-send" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-4 16-4-6-8-2Z" fill="currentColor"/></svg>
+            <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
+          </button>
+        </form>
+        <p class="sheet-foot">Ассистент может ошибаться. Важное проверяй на официальном сайте университета.</p>
+      </section>
+
+      <aside class="hero-side" aria-label="Дополнительная информация">
+        <section class="side-card" data-spotlight>
+          <h2>Спроси прямо сейчас</h2>
+          <ul class="quick">
+            <li><button type="button" data-ask="Расскажи про поступление: этапы и документы">Этапы поступления и документы</button></li>
+            <li><button type="button" data-ask="Как получить место в общежитии?">Как получить место в общежитии</button></li>
+            <li><button type="button" data-ask="Какие студенческие сообщества и кружки есть в университете?">Студенческие сообщества и кружки</button></li>
+            <li><button type="button" data-ask="Помоги подготовиться к сессии">План подготовки к сессии</button></li>
+          </ul>
+        </section>
+
+        <section class="side-card" data-spotlight>
+          <h2>Как спросить лучше</h2>
+          <ol class="tips">
+            <li><span>Назови курс, направление и форму обучения.</span></li>
+            <li><span>Один вопрос — одно сообщение, диалог можно продолжить.</span></li>
+            <li><span>Если ответ не подошёл, уточни, чего не хватает.</span></li>
+          </ol>
+        </section>
+
+        <!-- Интерактивный чек-лист абитуриента -->
+        <section class="side-card checklist-card" data-spotlight>
+          <div class="checklist-head">
+            <h2>Чек-лист поступления</h2>
+          </div>
+          <ul class="checklist">
+            <li>Выбрать направления (до 5 шт.)</li>
+            <li>Подготовить паспорт, СНИЛС и аттестат</li>
+            <li>Собрать грамоты за инд. достижения</li>
+            <li>Подать заявление и следить за списками</li>
+          </ul>
+        </section>
+
+        <section class="side-card side-note">
+          <h2>Важно</h2>
+          <p>Это неофициальный студенческий проект. Сроки, суммы и списки документов сверяй с официальным сайтом университета и деканатом!</p>
+        </section>
+      </aside>
+    </section>
+
+    <section class="block" id="abilities">
+      <h2>С чем поможет</h2>
+      <ul class="abilities">
+        <li data-spotlight><button type="button" data-ask="Расскажи про поступление: этапы и документы">
+          <span class="a-title">Поступление</span>
+          <span class="a-text">Этапы приёма, документы, направления, сроки.</span>
+        </button></li>
+        <li data-spotlight><button type="button" data-ask="Как найти расписание занятий?">
+          <span class="a-title">Расписание</span>
+          <span class="a-text">Пары, аудитории, преподаватели, изменения.</span>
+        </button></li>
+        <li data-spotlight><button type="button" data-ask="Как получить место в общежитии?">
+          <span class="a-title">Общежития</span>
+          <span class="a-text">Заселение, документы, правила проживания.</span>
+        </button></li>
+        <li data-spotlight><button type="button" data-ask="Как заказать справку об обучении?">
+          <span class="a-title">Справки и документы</span>
+          <span class="a-text">Какую справку заказать, куда идти, с чем.</span>
+        </button></li>
+        <li data-spotlight><button type="button" data-ask="Какие студенческие сообщества и кружки есть в университете?">
+          <span class="a-title">Студенческая жизнь</span>
+          <span class="a-text">Сообщества, мероприятия, спорт, проекты.</span>
+        </button></li>
+        <li data-spotlight><button type="button" data-ask="Помоги подготовиться к сессии">
+          <span class="a-title">Учёба</span>
+          <span class="a-text">Разбор тем, план подготовки, задачи.</span>
+        </button></li>
+      </ul>
+    </section>
+
+    <section class="block block-how" id="how">
+      <h2>Как пользоваться</h2>
+      <ol class="steps">
+        <li><h3>Напиши вопрос</h3><p>Своими словами, как спросил бы у старшекурсника.</p></li>
+        <li><h3>Получи ответ</h3><p>Ассистент ответит как можно быстрее и уточнит, если не хватает деталей.</p></li>
+        <li><h3>Проверь источник</h3><p>Перед важным решением сверься с официальным сайтом или деканатом!</p></li>
+      </ol>
+    </section>
+
+    <section class="band" id="about">
+      <div class="band-inner">
+        <h2>О проекте</h2>
+        <div class="band-text">
+          <p>mospolyt.ai сделан студентами 1-го курса Московского политеха по собственной инициативе. Это неофициальный сервис, он не принадлежит университету и не говорит от его имени.</p>
+          <p>Для оформления мы опираемся на открытый брендбук университета: кольцо-спираль, чёрно-белая гамма, красный акцент, шрифт Gilroy.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>mospolyt.ai — студенческий проект</span>
+    <span>Название и фирменный стиль Московского политеха принадлежат университету.</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
