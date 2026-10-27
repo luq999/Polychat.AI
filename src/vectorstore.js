@@ -2,7 +2,6 @@
 // record = { id, values: number[], text, source }
 import "./env.js";
 import { Pinecone } from "@pinecone-database/pinecone";
-import { ChromaClient } from "chromadb";
 
 const provider = (process.env.VECTOR_DB || "pinecone").toLowerCase();
 const DIM = Number(process.env.EMBED_DIM || 768);
@@ -52,6 +51,7 @@ async function pineconeStore({ createIfMissing = false } = {}) {
 
 /* ---------- ChromaDB ---------- */
 async function chromaStore() {
+  const { ChromaClient } = await import("chromadb"); // подгружаем только если выбран Chroma (экономит память и время старта)
   const client = new ChromaClient({ path: process.env.CHROMA_URL || "http://localhost:8000" });
   const collection = await client.getOrCreateCollection({
     name: process.env.CHROMA_COLLECTION || "mospolyt",

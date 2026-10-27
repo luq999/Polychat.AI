@@ -1,4 +1,4 @@
-/* mospolyt.ai — кольцо-спираль, интерактивные виджеты и чат. */
+/* Polychat.AI — кольцо-спираль, интерактивные виджеты и чат. */
 
 const API_URL = "/api/chat";
 const STREAM_URL = "/api/chat/stream"; // потоковый ответ; поставьте null, чтобы получать ответ целиком
@@ -8,6 +8,12 @@ const root = document.documentElement;
 
 /* ================= Кольцо → спираль (плавная отрисовка без мигания) ================= */
 const rings = [...document.querySelectorAll("[data-ring]")];
+// не перерисовываем кольцо, пока оно за пределами экрана
+const ringVisible = new WeakMap();
+if ("IntersectionObserver" in window) {
+  const io = new IntersectionObserver((entries) => entries.forEach((e) => ringVisible.set(e.target, e.isIntersecting)));
+  rings.forEach((cv) => io.observe(cv));
+}
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let spiral = 0;          // текущая степень превращения 0..1
 let spiralTarget = 0;    // куда стремимся
@@ -35,7 +41,7 @@ function drawRing(canvas, t, rotation, ink, bg) {
   const c = size / 2;
   const R = size * 0.40;
   const lw = size * parseFloat(canvas.dataset.width || 0.17) * (1 - 0.25 * t);
-  const turns = 2, steps = 240;
+  const turns = 2, steps = canvas.clientWidth < 80 ? 60 : 240; // у маленького кольца в шапке хватает 60 сегментов
   ctx.lineWidth = lw;
   ctx.lineCap = "round";
 
@@ -62,7 +68,7 @@ function drawRing(canvas, t, rotation, ink, bg) {
 
 function frame() {
   const ink = cssColor("--ink"), bg = cssColor("--bg");
-  rings.forEach((cv) => drawRing(cv, spiral, rot, ink, bg));
+  rings.forEach((cv) => { if (ringVisible.get(cv) !== false) drawRing(cv, spiral, rot, ink, bg); });
 }
 function loop() {
   spiral += (spiralTarget - spiral) * 0.06;
@@ -230,27 +236,14 @@ const SUGGESTIONS = [
 ];
 const GREETING = "Привет! Я ассистент, которого сделали студенты Политеха. Спрашивай про поступление, учёбу, расписание и студенческую жизнь.";
 
-const DEMO_REPLIES = [
-  { test: /поступ|документ|абитури|приём|прием/i,
-    text: "**Поступление.** Здесь ассистент расскажет про этапы приёма, документы и сроки подачи. Точные даты и список документов смотри на официальном сайте и уточняй в приёмной комиссии." },
-  { test: /расписан|пар[аы]|аудитори|корпус|семёнов|пряниш|автозавод|корчаг|михалк/i,
-    text: "**Расписание и корпуса.** Подскажу, где смотреть расписание твоей группы, и помогу найти корпус, аудиторию или преподавателя. Напиши свою группу или курс." },
-  { test: /общежит|заселен/i,
-    text: "**Общежития.** Здесь будет порядок заселения, документы и правила проживания. Напиши, ты поступаешь или уже учишься, — подскажу, с чего начать." },
-  { test: /справк|заявлен/i,
-    text: "**Справки.** Объясню, как заказать справку об обучении и куда идти за другими документами. Напиши, какая именно справка нужна." },
-  { test: /сессия|экзамен|зач[её]т|подготов|учёб|учеб/i,
-    text: "**Учёба.** Могу составить план подготовки к сессии и объяснить сложную тему. Напиши предмет и дату экзамена." },
-  { test: /сообществ|кружк|мероприят|спорт|студенч/i,
-    text: "**Студенческая жизнь.** Здесь будут сообщества, мероприятия и спортивные секции. Напиши, что тебе интересно: наука, спорт, творчество или проекты." },
-];
-const FALLBACK = "Это демо-режим: настоящие ответы появятся, когда ассистент подключится к серверу. Попробуй спросить про поступление, расписание, общежитие или справки.";
-
 const log = $("#log"), form = $("#form"), input = $("#input");
 const chips = $("#chips"), sendBtn = $("#sendBtn"), scrollBottomBtn = $("#scrollBottomBtn");
 let history = loadHistory();
 let busy = false;
 let abortCtrl = null;
+
+// На сервер уходят только последние сообщения и урезанные по длине: иначе длинный диалог упирается в лимит запроса (413)
+const recentHistory = () => history.slice(-8).map((m) => ({ role: m.role, content: String(m.content).slice(0, 1500) }));
 
 function loadHistory() { try { return JSON.parse(localStorage.getItem("mospolyt-chat") || "[]"); } catch { return []; } }
 function saveHistory() { try { localStorage.setItem("mospolyt-chat", JSON.stringify(history.slice(-40))); } catch {} }
@@ -264,7 +257,7 @@ function smartScroll(force = false) {
 log.addEventListener("scroll", () => {
   if (scrollBottomBtn) scrollBottomBtn.hidden = isNearBottom();
 });
-scrollBottomBtn?.addEventListener("click", () => smartScroll(true));
+scrollBottomBtn?.addEventListener("click", () => log.scrollTo({ top: log.scrollHeight, behavior: "smooth" }));
 
 function createCopyButton(getRawText) {
   const btn = document.createElement("button");
@@ -295,10 +288,16 @@ function addMessage(role, text) {
   if (role === "bot") {
     el.innerHTML = renderText(text);
     el.appendChild(createCopyButton(() => rawText));
+    // при потоковом ответе обновляем текст не чаще одного раза за кадр, а не на каждый кусок
     el._updateText = (newText) => {
       rawText = newText;
-      const body = el.querySelector(".msg-body");
-      if (body) body.outerHTML = renderText(newText);
+      if (el._raf) return;
+      el._raf = requestAnimationFrame(() => {
+        el._raf = 0;
+        const body = el.querySelector(".msg-body");
+        if (body) body.outerHTML = renderText(rawText);
+        smartScroll(false);
+      });
     };
   } else {
     el.textContent = text;
@@ -330,19 +329,14 @@ function renderChips() {
 }
 
 async function askAssistant(message, signal) {
-  if (API_URL) {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, history }),
-      signal,
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return (await res.json()).reply;
-  }
-  await new Promise((r) => setTimeout(r, 1200 + Math.random() * 600));
-  const hit = DEMO_REPLIES.find((r) => r.test.test(message));
-  return hit ? hit.text : FALLBACK;
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, history: recentHistory() }),
+    signal,
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return (await res.json()).reply;
 }
 
 // Потоковый ответ: текст появляется по мере генерации (сервер шлёт NDJSON-строки)
@@ -350,7 +344,7 @@ async function askStream(message, typing, signal) {
   const res = await fetch(STREAM_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ message, history: recentHistory() }),
     signal,
   });
   if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
@@ -373,7 +367,6 @@ async function askStream(message, typing, signal) {
       if (!el) { typing.remove(); el = addMessage("bot", ""); }
       full += m.t;
       el._updateText(full);
-      smartScroll(false);
     }
   };
 
@@ -479,4 +472,4 @@ $("#themeToggle").addEventListener("click", () => {
 /* ================= Старт ================= */
 if (history.length === 0) resetChat();
 else { history.forEach((m) => addMessage(m.role === "user" ? "user" : "bot", m.content)); renderChips(); }
-$("#statusText").textContent = API_URL ? "онлайн" : "демо-режим";
+$("#statusText").textContent = "онлайн";

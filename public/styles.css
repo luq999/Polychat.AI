@@ -1,6 +1,10 @@
 /* mospolyt.ai — студенческий проект.
    Стиль по брендбуку Московского политеха: чёрный и белый, красный акцент, шрифт Gilroy. */
 
+/* Gilroy: когда положишь файлы в public/assets/fonts/, раскомментируй этот блок.
+   Пока файлов нет, браузер зря делает запросы и получает 404, поэтому блок выключен.
+   (Если Gilroy установлен в системе, он подхватится и так.)
+
 @font-face { font-family: "Gilroy"; font-weight: 400; font-display: swap;
   src: local("Gilroy Regular"), local("Gilroy-Regular"), url("assets/fonts/Gilroy-Regular.woff2") format("woff2"); }
 @font-face { font-family: "Gilroy"; font-weight: 500; font-display: swap;
@@ -9,6 +13,7 @@
   src: local("Gilroy Bold"), local("Gilroy-Bold"), url("assets/fonts/Gilroy-Bold.woff2") format("woff2"); }
 @font-face { font-family: "Gilroy"; font-weight: 800; font-display: swap;
   src: local("Gilroy ExtraBold"), local("Gilroy-ExtraBold"), url("assets/fonts/Gilroy-ExtraBold.woff2") format("woff2"); }
+*/
 
 :root {
   --ink: #0A0A0A;
@@ -42,8 +47,6 @@ html { scroll-behavior: smooth; scroll-padding-top: 84px; }
 body {
   margin: 0; font-family: var(--font); font-size: 17px; line-height: 1.55;
   color: var(--ink); background-color: var(--bg);
-  background-image: radial-gradient(color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px);
-  background-size: 24px 24px;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.25s ease, color 0.25s ease;
 }
@@ -61,9 +64,8 @@ button { cursor: pointer; }
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 12px max(20px, calc((100vw - var(--maxw)) / 2 + 20px));
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  border-bottom: none; /* вместо неё анимированная линия .site-header::after */
 }
 .brand { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; }
 .ring { display: block; }
@@ -94,6 +96,7 @@ button { cursor: pointer; }
 
 /* Большое кольцо */
 .ring-stage {
+  position: relative;
   display: inline-block;
   margin-top: 32px;
   margin-left: var(--ring-shift);
@@ -113,6 +116,7 @@ button { cursor: pointer; }
   padding: 18px 20px;
   background: var(--bg);
   max-width: 340px;
+  position: relative; overflow: hidden;
   transition: border-color 0.25s ease;
 }
 .campus-widget:hover { border-color: color-mix(in srgb, var(--ink) 40%, var(--line)); }
@@ -123,7 +127,7 @@ button { cursor: pointer; }
   border: 1.5px solid var(--line); background: transparent;
   border-radius: 10px; padding: 5px 11px;
   font-size: 13.5px; font-weight: 700;
-  transition: all 0.18s ease;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 .campus-tab:hover { border-color: var(--ink); }
 .campus-tab.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
@@ -199,7 +203,7 @@ button { cursor: pointer; }
 .head-btn { border: 1.5px solid var(--line); background: transparent; border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 500; transition: border-color 0.2s ease; }
 .head-btn:hover { border-color: var(--ink); }
 
-.log { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+.log { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: auto; }
 .msg {
   position: relative;
   max-width: 86%; padding: 11px 15px; border-radius: 18px;
@@ -210,7 +214,7 @@ button { cursor: pointer; }
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.msg.bot { align-self: flex-start; background: var(--soft); border-bottom-left-radius: 6px; padding-right: 36px; }
+.msg.bot { align-self: flex-start; background: var(--soft); border-bottom-left-radius: 6px; padding-left: 20px; padding-right: 36px; }
 .msg.user { align-self: flex-end; background: var(--ink); color: var(--bg); border-bottom-right-radius: 6px; white-space: pre-wrap; }
 .msg strong { font-weight: 700; }
 
@@ -258,9 +262,17 @@ button { cursor: pointer; }
 .chip:hover { border-color: var(--ink); }
 
 .composer { display: flex; align-items: flex-end; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--bg); }
-.composer textarea { flex: 1; resize: none; max-height: 140px; border: 1.5px solid var(--line); background: var(--soft); border-radius: 16px; padding: 12px 14px; line-height: 1.4; }
-.composer textarea:focus { outline: none; border-color: var(--ink); background: var(--bg); }
-.send { flex: none; width: 46px; height: 46px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--red); color: #fff; transition: background 0.2s ease; }
+.composer textarea {
+  flex: 1; resize: none; max-height: 140px; border: 1.5px solid var(--line); background: var(--soft);
+  border-radius: 16px; padding: 12px 14px; line-height: 1.4;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+}
+/* Свечение поля ввода при наборе текста */
+.composer textarea:focus {
+  outline: none; border-color: var(--red); background: var(--bg);
+  box-shadow: 0 0 12px var(--red-glow), inset 0 0 4px var(--red-glow);
+}
+.send { position: relative; overflow: hidden; flex: none; width: 46px; height: 46px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--red); color: #fff; transition: background 0.2s ease; }
 .send svg { width: 20px; height: 20px; }
 .send .icon-stop { display: none; }
 .send.is-busy { background: var(--ink); color: var(--bg); }
@@ -329,13 +341,10 @@ button { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) {
   html, .log { scroll-behavior: auto; }
-  .typing i, .msg { animation: none; opacity: .6; }
+  /* отключаем все анимации (сетка, блики, свечения, перелив заголовка) */
+  *, *::before, *::after { animation: none !important; }
+  .typing i { opacity: .6; }
 }
-/* Добавляем позиционирование контейнеру кольца, если его нет */
-.ring-stage {
-  position: relative;
-}
-
 /* Пульсирующее свечение на заднем плане */
 .ring-stage::before {
   content: "";
@@ -356,12 +365,7 @@ button { cursor: pointer; }
   0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.6; }
   100% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
 }
-/* Дополняем существующий класс .send */
-.send {
-  position: relative;
-  overflow: hidden;
-}
-
+/* Блик на кнопке отправки */
 .send::after {
   content: "";
   position: absolute;
@@ -380,26 +384,8 @@ button { cursor: pointer; }
   20% { left: 150%; }
   100% { left: 150%; }
 }
-/* Анимация обводки и тени главного окна чата */
-.sheet {
-  animation: sheetBorderGlow 8s infinite alternate ease-in-out;
-}
 
-@keyframes sheetBorderGlow {
-  0% { 
-    border-color: var(--ink); 
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.06); 
-  }
-  100% { 
-    border-color: color-mix(in srgb, var(--red) 60%, var(--ink)); 
-    box-shadow: 0 18px 44px var(--red-glow); 
-  }
-}
-.campus-widget {
-  position: relative;
-  overflow: hidden;
-}
-
+/* Блик, пробегающий по виджету корпусов */
 .campus-widget::before {
   content: "";
   position: absolute;
@@ -439,12 +425,6 @@ button { cursor: pointer; }
   background-color: var(--mid);
 }
 /* Красная акцентная полоса у сообщений бота */
-.msg.bot {
-  position: relative;
-  /* Увеличиваем левый padding, чтобы текст не прилипал к полосе */
-  padding-left: 20px; 
-}
-
 .msg.bot::before {
   content: "";
   position: absolute;
@@ -456,17 +436,6 @@ button { cursor: pointer; }
   border-radius: 6px 0 0 6px;
   opacity: 0.8;
   box-shadow: 2px 0 8px var(--red-glow);
-}
-/* Магнитное свечение инпута при наборе текста */
-.composer textarea {
-  transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
-}
-
-.composer textarea:focus {
-  outline: none;
-  border-color: var(--red);
-  background: var(--bg);
-  box-shadow: 0 0 12px var(--red-glow), inset 0 0 4px var(--red-glow);
 }
 /* Металлический перелив на главном заголовке */
 .hero-copy h1 {
@@ -487,29 +456,21 @@ button { cursor: pointer; }
   0% { background-position: 0% 50%; }
   100% { background-position: 100% 50%; }
 }
-/* ================= Плавная кинетическая сетка (Движущиеся точки) ================= */
-
-body {
-  background-image: none !important;
-}
+/* ================= Движущаяся сетка из точек =================
+   Двигается через transform (это делает видеокарта), а не через background-position:
+   тот перерисовывал весь экран каждый кадр и сильно нагружал процессор.
+   Растворение у краёв экрана делает статичный слой body::after. */
 
 body::before {
   content: "";
   position: fixed;
-  inset: 0;
+  inset: -240px;            /* запас 240px = 10 шагов сетки, чтобы сдвиг не открывал край */
   z-index: -3;
   pointer-events: none;
-
-  /* Те самые бордовые точки для светлой темы */
   background-image: radial-gradient(color-mix(in srgb, var(--red-dark) 40%, transparent) 1.5px, transparent 1.5px);
   background-size: 24px 24px;
-
-  /* Мягко растворяем точки по краям экрана (статичная маска) */
-  -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
-  mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
-  
-  /* Возвращаем анимацию плавного бесконечного движения сетки! */
   animation: panGrid 40s linear infinite;
+  will-change: transform;
 }
 
 /* Яркие красные точки для тёмной темы */
@@ -517,17 +478,19 @@ body::before {
   background-image: radial-gradient(color-mix(in srgb, var(--red) 30%, transparent) 1.5px, transparent 1.5px);
 }
 
-/* Анимация диагонального скольжения точек */
-@keyframes panGrid {
-  0%   { background-position: 0px 0px; }
-  /* 240px — это 10 шагов сетки (24px), поэтому движение зацикливается без рывков */
-  100% { background-position: -240px 240px; }
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 40%, var(--bg) 100%);
 }
-/* ================= Анимированная линия под шапкой (Ещё быстрее) ================= */
 
-.site-header {
-  border-bottom: none !important; 
-}
+/* 240px — это 10 шагов сетки (24px), поэтому движение зацикливается без рывков */
+@keyframes panGrid { to { transform: translate(-240px, 240px); } }
+
+/* ================= Анимированная линия под шапкой (Ещё быстрее) ================= */
 
 .site-header::after {
   content: "";
@@ -576,10 +539,3 @@ body::before {
   0% { background-position: 100% 0; }
   100% { background-position: -50% 0; }
 }
-
-
-
-
-
-
-
