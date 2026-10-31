@@ -16,21 +16,27 @@ const WEB_MODEL = process.env.GEMINI_WEB_MODEL || "";
 const MAX_OUTPUT_TOKENS = Number(process.env.MAX_OUTPUT_TOKENS || 4096);
 // Поиск Google внутри Gemini. GEMINI_WEB_SEARCH:
 //   off    — выключен (по умолчанию)
-//   auto   — только если в базе знаний (RAG) не нашлось подходящих фрагментов
-//   always — для каждого вопроса
+//   weak   — подключается только если контекст из базы слабый (лучший балл ниже WEB_MIN_SCORE) или пустой
+//   auto   — подключён всегда, модель сама решает, нужен ли поиск (медленнее: может искать даже при хорошем контексте)
+//   always — для каждого вопроса модель обязана искать
 // Медленнее обычного ответа, у него свои лимиты и цена.
 const WEB_MODE = (() => {
   const v = (process.env.GEMINI_WEB_SEARCH || "").trim().toLowerCase();
-  if (v === "auto") return "auto";
+  if (v === "auto" || v === "weak") return v;
   return /^(1|true|yes|on|always)$/.test(v) ? "always" : "off";
 })();
-const WEB_RULES = ` Выбирай надёжные источники: официальные сайты университетов, энциклопедии, учебные и научные ресурсы; не опирайся на форумы и сомнительные сайты. Всё, что взято из интернета, помечай словами «по данным из интернета» и советуй сверить с официальным сайтом университета или преподавателем. Требование «ничего не выдумывай и опирайся только на контекст» не распространяется на сведения, найденные через поиск. На вопросы вне учёбы и университета (развлечения, политика, личные советы) вежливо ответь, что помогаешь только с учёбой и университетом.`;
+// Что считается учебным вопросом (на такие отвечаем всегда, даже если их нет в документах университета)
+const SCOPE_RULE = `Учебными считаются вопросы по любым школьным и вузовским предметам: литература (произведения, авторы, герои, анализ, сочинения), русский и иностранные языки, история, математика, физика, химия, биология, информатика и программирование, обществознание, право, экономика, философия и т. п., а также определения, формулы, задачи, конспекты, подготовка к экзаменам и зачётам. На такие вопросы отвечай всегда, даже если они не связаны с документами университета. Вежливо отказывай, только если вопрос явно не про учёбу (например, развлечения, гороскопы, личные советы, политическая агитация); в сомнительных случаях лучше ответь.`;
+const WEB_RULES = ` Выбирай надёжные источники: официальные сайты университетов, энциклопедии, учебные и научные ресурсы; не опирайся на форумы и сомнительные сайты. Всё, что взято из интернета, помечай словами «по данным из интернета» и советуй сверить с официальным сайтом университета или преподавателем. Требование «ничего не выдумывай и опирайся только на контекст» не распространяется на сведения, найденные через поиск. ${SCOPE_RULE}`;
 // контекст слабый или пустой — поиск основной источник
 const NOTE_WEAK = `
 В блоке «КОНТЕКСТ» нет нужных сведений, поэтому воспользуйся поиском Google для учебных вопросов (объяснение тем и понятий, задачи, подготовка к экзаменам, жизнь и правила вуза).` + WEB_RULES;
 // контекст хороший — отвечаем по нему, а поиск используем для дополнения
 const NOTE_SUPPLEMENT = `
 Основа ответа — блок «КОНТЕКСТ». Если вопрос требует дополнительных, более подробных или более свежих сведений, которых в контексте нет, дополни ответ поиском Google: сначала дай то, что есть в контексте, затем отдельным абзацем добавь найденное в интернете. Если контекста достаточно, поиск не используй.` + WEB_RULES;
+// модель без инструмента поиска (например, Gemma): контекст слабый — отвечаем из общих знаний, но только по учебным темам
+const NOTE_KNOWLEDGE = `
+ВАЖНО. Если в блоке «КОНТЕКСТ» нет ответа на вопрос, а вопрос учебный (литература, история, наука, задачи, объяснение тем и понятий), НЕ пиши «в документах нет информации» и не давай общих советов. Сразу ответь по существу из своих знаний: например, на вопрос «о чём произведение» кратко расскажи сюжет, главных героев, тему и идею. Это правило важнее требования отвечать только по контексту и отсылать на официальный сайт. В конце одной короткой строкой отметь, что это общий справочный ответ, а не из документов университета, и его стоит сверить с книгой или учебником. Если не знаешь произведение или не уверен, так и скажи; не выдумывай факты, даты и цитаты. ${SCOPE_RULE}`;
 // режим always
 const NOTE_ALWAYS = `
 Для этого вопроса обязательно воспользуйся поиском Google, чтобы проверить и дополнить сведения из блока «КОНТЕКСТ»: сначала дай то, что есть в контексте, затем добавь найденное в интернете.` + WEB_RULES;
@@ -72,8 +78,12 @@ export async function embed(texts, taskType, retries = 5) {
 
 async function retrieve(question) {
   try {
+    const t0 = Date.now();
     const [vector] = await embed([question], "RETRIEVAL_QUERY", 2);
+    const t1 = Date.now();
     const matches = await (await store()).query(vector, TOP_K);
+    const t2 = Date.now();
+    console.log(`Время: эмбеддинг вопроса (Gemini) ${t1 - t0} мс, поиск в векторной БД ${t2 - t1} мс`);
     return matches.filter((m) => m.text && m.score >= MIN_SCORE);
   } catch (err) {
     err.stage = "поиск в базе знаний (эмбеддинги Gemini или векторная БД)";
@@ -185,21 +195,30 @@ async function prepare(message, history) {
 
   const best = matches.reduce((mx, m) => Math.max(mx, m.score), 0);
   const weak = matches.length === 0 || best < WEB_MIN_SCORE;
-  const useSearch = WEB_MODE !== "off"; // инструмент подключён всегда; платится только реально выполненный поиск
-  const note = WEB_MODE === "always" ? NOTE_ALWAYS : weak ? NOTE_WEAK : NOTE_SUPPLEMENT;
+  // weak — только при слабом контексте; auto/always — инструмент подключён всегда (платится и ждёт только реально выполненный поиск)
+  let useSearch = WEB_MODE === "weak" ? weak : WEB_MODE !== "off";
+  const primary = useSearch && WEB_MODEL ? WEB_MODEL : CHAT_MODEL;
+  // Gemma не поддерживает поиск Google и уровень рассуждений: не отправляем их, иначе запрос зависает
+  const plainModel = /gemma/i.test(primary);
+  if (plainModel) useSearch = false;
+  const note = plainModel
+    ? (WEB_MODE !== "off" ? NOTE_KNOWLEDGE : "")
+    : WEB_MODE === "always" ? NOTE_ALWAYS : weak ? NOTE_WEAK : NOTE_SUPPLEMENT;
   console.log(
     `RAG: найдено фрагментов ${matches.length}, лучший балл ${best.toFixed(2)}, контекст ${weak ? "слабый" : "сильный"}, ` +
-    `поиск Google: ${useSearch ? "подключён (" + (WEB_MODEL || CHAT_MODEL) + ")" : "выключен"}`
+    `режим поиска: ${WEB_MODE}, модель: ${primary}` +
+    (plainModel ? " (Gemma: поиск Google и рассуждения отключены, если в контексте нет ответа, отвечает из общих знаний)"
+      : `, инструмент поиска Google ${useSearch ? "ДОСТУПЕН модели, выполнится ли поиск — см. следующую строку" : "НЕ подключён"}`)
   );
   const config = {
-    systemInstruction: SYSTEM_PROMPT + (useSearch ? note : ""),
+    systemInstruction: SYSTEM_PROMPT + (useSearch || plainModel ? note : ""),
     temperature: 0.3,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
   };
-  if (THINKING_LEVEL) config.thinkingConfig = { thinkingLevel: THINKING_LEVEL };
+  if (THINKING_LEVEL && !plainModel) config.thinkingConfig = { thinkingLevel: THINKING_LEVEL };
   if (useSearch) config.tools = [{ googleSearch: {} }];
 
-  return { contents, config, sources: [...new Set(matches.map((m) => m.source))], model: useSearch && WEB_MODEL ? WEB_MODEL : CHAT_MODEL, useSearch };
+  return { contents, config, sources: [...new Set(matches.map((m) => m.source))], model: primary, useSearch };
 }
 
 
@@ -240,6 +259,7 @@ const FIRST_CHUNK_TIMEOUT_MS = Number(process.env.FIRST_CHUNK_TIMEOUT_S || 40) *
 const STREAM_ATTEMPTS = 2;
 
 export async function* answerStream(message, history) {
+  const tReq = Date.now(); // начало запроса — с него считаем всё ожидание пользователя
   yield { status: "Ищу в базе знаний…" };
   const { contents, config, sources, model: primary } = await prepare(message, history);
   yield { status: "Формулирую ответ…" };
@@ -263,7 +283,7 @@ export async function* answerStream(message, history) {
           if (text) {
             if (!started) {
               clearTimeout(timer);
-              console.log(`Gemini: первый кусок через ${((Date.now() - t0) / 1000).toFixed(1)} с`);
+              console.log(`Gemini: первый кусок через ${((Date.now() - t0) / 1000).toFixed(1)} с после начала генерации; с момента запроса пользователя: ${((Date.now() - tReq) / 1000).toFixed(1)} с`);
             }
             started = true;
             yield { text };
@@ -273,7 +293,7 @@ export async function* answerStream(message, history) {
           usage = chunk.usageMetadata ?? usage;
         }
         console.log(
-          `Gemini: всего ${((Date.now() - t0) / 1000).toFixed(1)} с, finish=${finish}, ` +
+          `Gemini: генерация ${((Date.now() - t0) / 1000).toFixed(1)} с (весь запрос ${((Date.now() - tReq) / 1000).toFixed(1)} с), finish=${finish}, ` +
           `thinking=${usage.thoughtsTokenCount ?? 0}, output=${usage.candidatesTokenCount ?? 0}`
         );
         logGrounding(grounding);
@@ -316,3 +336,17 @@ export async function* answerStream(message, history) {
 }
 
 export const modelInfo = { chat: CHAT_MODEL, fallback: FALLBACK_MODEL || "нет", embed: EMBED_MODEL, webSearch: WEB_MODE, webModel: WEB_MODEL || "как основная" };
+
+// Прогрев при старте: первый запрос к векторной БД всегда дольше остальных (создаётся клиент и соединение)
+async function warmup() {
+  try {
+    const v = new Array(DIM).fill(0);
+    v[0] = 1;
+    const t0 = Date.now();
+    await (await store()).query(v, 1);
+    console.log(`Прогрев векторной БД: ${Date.now() - t0} мс`);
+  } catch (err) {
+    console.warn("Прогрев векторной БД не удался:", err?.message || err);
+  }
+}
+setTimeout(warmup, 300);

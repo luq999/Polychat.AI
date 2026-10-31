@@ -24,6 +24,8 @@
   --red: #E4002B;
   --red-dark: #BF0024;
   --red-glow: rgba(228, 0, 43, 0.12);
+  --logo-start: #000000;
+  --logo-end: #DBDBE0;
   --font: "Gilroy", "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --maxw: 1280px;
   --chat-w: 520px;
@@ -40,6 +42,8 @@
   --red: #FF3B57;
   --red-dark: #E4002B;
   --red-glow: rgba(255, 59, 87, 0.16);
+  --logo-start: #FFFFFF;
+  --logo-end: #141416;
 }
 
 *, *::before, *::after { box-sizing: border-box; }

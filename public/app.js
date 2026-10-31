@@ -30,7 +30,7 @@ function mix(a, b, t) {
   return a.map((x, i) => Math.round(x + (b[i] - x) * k));
 }
 
-function drawRing(canvas, t, rotation, ink, bg) {
+function drawRing(canvas, t, rotation, logoStart, logoEnd) {
   const dpr = window.devicePixelRatio || 1;
   const size = canvas.clientWidth * dpr;
   if (!size) return;
@@ -52,11 +52,12 @@ function drawRing(canvas, t, rotation, ink, bg) {
     const r0 = R * (1 + (0.25 + 0.75 * u0 - 1) * t);
     const r1 = R * (1 + (0.25 + 0.75 * u1 - 1) * t);
 
-    // Базовый ч/б градиент
-    const ang = (u0 * turns * Math.PI * 2) % (Math.PI * 2);
-    const ringV = 0.5 - 0.5 * Math.cos(ang);
-    const v = ringV + (u0 - ringV) * t;
-    let color = mix(ink, bg, v);
+    // Окрас по референсам: один направленный градиент по окружности (с объёмной "головой" в конце витка)
+    // и плавный переход к виткам спирали при раскрытии
+    const ang = (u0 * turns) % 1;
+    const ringV = 1 - ang;
+    const v = ringV + (1 - u0 - ringV) * t;
+    let color = mix(logoStart, logoEnd, v);
 
     ctx.strokeStyle = `rgb(${color.join(",")})`;
     ctx.beginPath();
@@ -67,8 +68,8 @@ function drawRing(canvas, t, rotation, ink, bg) {
 }
 
 function frame() {
-  const ink = cssColor("--ink"), bg = cssColor("--bg");
-  rings.forEach((cv) => { if (ringVisible.get(cv) !== false) drawRing(cv, spiral, rot, ink, bg); });
+  const logoStart = cssColor("--logo-start"), logoEnd = cssColor("--logo-end");
+  rings.forEach((cv) => { if (ringVisible.get(cv) !== false) drawRing(cv, spiral, rot, logoStart, logoEnd); });
 }
 function loop() {
   spiral += (spiralTarget - spiral) * 0.06;
